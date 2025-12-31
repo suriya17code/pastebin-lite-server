@@ -1,12 +1,12 @@
 import { Request } from 'express';
 import Paste, { IPaste } from '../models/Paste';
-import { getCurrentTime } from './timeUtils';
+
 
 // Get Paste Function (Reusable logic)
 // Returns the paste document if available, null otherwise.
 // Handles view counting decrement.
 export const fetchAndCountPaste = async (id: string, req: Request): Promise<IPaste | null> => {
-  const now = getCurrentTime(req);
+  const now = req.now;
   // 1. Fetch first to check expiry without modifying
   // We need to verify if it exists and expires_at
   const pasteAttempt = await Paste.findById(id);

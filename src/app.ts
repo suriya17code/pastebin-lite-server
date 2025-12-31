@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import connectDB from './config/db';
 import pasteRoutes from './routes/pasteRoutes';
+import { timeMiddleware } from './middleware/timeMiddleware';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json());
+app.use(timeMiddleware);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 

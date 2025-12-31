@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Paste from '../models/Paste';
-import { getCurrentTime } from '../utils/timeUtils'; 
 import { sendErrorResponse } from '../utils/responseUtils';
 import { fetchAndCountPaste } from '../utils/pasteUtils';
+import sanitizeHtml from 'sanitize-html';
  
 // Create Paste
 export const createPaste = async (req: Request, res: Response) => {
@@ -14,7 +14,7 @@ export const createPaste = async (req: Request, res: Response) => {
       return sendErrorResponse(res, 400, 'Content is required and must be a non-empty string', 'json');
     }
 
-    const now = getCurrentTime(req);
+    const now = req.now;
     let expires_at: Date | undefined;
     if (ttl_seconds && typeof ttl_seconds === 'number' && ttl_seconds >= 1) {
       expires_at = new Date(now.getTime() + ttl_seconds * 1000);
@@ -77,7 +77,7 @@ export const viewPaste = async (req: Request, res: Response) => {
     }
 
     res.render('paste', {
-        content: paste.content,
+        content: sanitizeHtml(paste.content),
         expires_at: paste.expires_at,
         remaining_views: paste.remaining_views
     });
