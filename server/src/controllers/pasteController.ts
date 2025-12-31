@@ -1,29 +1,17 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import Paste, { IPaste } from '../models/Paste';
-
-// Helper for deterministic time
-const getCurrentTime = (req: Request): Date => {
-  const testMode = process.env.TEST_MODE === '1';
-  if (testMode) {
-    const headerTime = req.headers['x-test-now-ms'];
-    if (headerTime && typeof headerTime === 'string') {
-      const ms = parseInt(headerTime, 10);
-      if (!isNaN(ms)) {
-        return new Date(ms);
-      }
-    }
-  }
-  return new Date();
-};
-
+import Paste from '../models/Paste';
+import { getCurrentTime } from '../utils/timeUtils'; 
+import { sendErrorResponse } from '../utils/responseUtils';
+import { fetchAndCountPaste } from '../utils/pasteUtils';
+ 
 // Create Paste
 export const createPaste = async (req: Request, res: Response) => {
   try {
     const { content, ttl_seconds, max_views } = req.body;
 
     if (!content || typeof content !== 'string' || content.trim() === '') {
-      return res.status(400).json({ error: 'Content is required and must be a non-empty string' });
+      return sendErrorResponse(res, 400, 'Content is required and must be a non-empty string', 'json');
     }
 
     const now = getCurrentTime(req);
@@ -54,54 +42,8 @@ export const createPaste = async (req: Request, res: Response) => {
 
     res.status(201).json({ id: paste._id, url });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendErrorResponse(res, 500, error.message, 'json');
   }
-};
-
-// Get Paste Function (Reusable logic)
-// Returns the paste document if available, null otherwise.
-// Handles view counting decrement.
-const fetchAndCountPaste = async (id: string, req: Request): Promise<IPaste | null> => {
-  const now = getCurrentTime(req);
-
-  // 1. Fetch first to check expiry without modifying
-  // We need to verify if it exists and expires_at
-  const pasteAttempt = await Paste.findById(id);
-
-  if (!pasteAttempt) return null;
-
-  // Check TTL
-  if (pasteAttempt.expires_at && pasteAttempt.expires_at < now) {
-    return null;
-  }
-
-  // Check View Limit & Decrement
-  // If remaining_views is undefined/null, it's unlimited.
-  if (pasteAttempt.remaining_views === undefined || pasteAttempt.remaining_views === null) {
-      return pasteAttempt;
-  }
-
-  // If we have a view limit, we must decrement atomically
-  // Update only if remaining_views > 0
-  const updatedPaste = await Paste.findOneAndUpdate(
-    { _id: id, remaining_views: { $gt: 0 } },
-    { $inc: { remaining_views: -1 } },
-    { new: true } // Return the updated document
-  );
-  
-  // Note: if atomic update fails (returned null), it means remaining_views was 0.
-  // We also need to re-check TTL on the updated doc technically, but we did it above.
-  // The only race condition is if expires_at passes between findById and findOneAndUpdate.
-  // But strictly, if 'updatedPaste' is null, it might be due to remaining_views being 0.
-  
-  if (!updatedPaste) return null; 
-
-  // Re-check TTL on updatedPaste just in case
-  if (updatedPaste.expires_at && updatedPaste.expires_at < now) {
-      return null;
-  }
-
-  return updatedPaste;
 };
 
 // API Get Paste
@@ -111,7 +53,7 @@ export const getPaste = async (req: Request, res: Response) => {
     const paste = await fetchAndCountPaste(id, req);
 
     if (!paste) {
-      return res.status(404).json({ error: 'Paste not found or unavailable' });
+      return sendErrorResponse(res, 404, 'Paste not found or unavailable', 'json');
     }
 
     res.json({
@@ -120,10 +62,9 @@ export const getPaste = async (req: Request, res: Response) => {
       expires_at: paste.expires_at,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendErrorResponse(res, 500, error.message, 'json');
   }
 };
-
 
 // HTML View Paste
 export const viewPaste = async (req: Request, res: Response) => {
@@ -132,39 +73,17 @@ export const viewPaste = async (req: Request, res: Response) => {
     const paste = await fetchAndCountPaste(id, req);
 
     if (!paste) {
-      return res.status(404).send('<h1>404 - Paste not found or unavailable</h1>');
+      return sendErrorResponse(res, 404, 'Paste not found or unavailable', 'html');
     }
 
-    // Sanitize content minimally (basic escape) for display
-    // In a real app use a library. Here we replace < with &lt;
-    const safeContent = paste.content
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>View Paste</title>
-        <style>
-            body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; line-height: 1.6; }
-            pre { background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
-        </style>
-      </head>
-      <body>
-        <h1>Paste Content</h1>
-        <pre>${safeContent}</pre>
-      </body>
-      </html>
-    `;
-    res.send(html);
+    res.render('paste', {
+        content: paste.content,
+        expires_at: paste.expires_at,
+        remaining_views: paste.remaining_views
+    });
 
   } catch (error: any) {
-     res.status(404).send('<h1>404 - Error</h1>');
+     sendErrorResponse(res, 404, '404 - Error', 'html');
   }
 }
 

@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -18,6 +19,8 @@ app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json());
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '../views'));
 
 // Routes
 app.use('/', pasteRoutes);

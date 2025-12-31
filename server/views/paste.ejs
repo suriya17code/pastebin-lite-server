@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Paste</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #1976d2;
+            margin-top: 0;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 1.5rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid #ddd;
+        }
+        .meta {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 1rem;
+            border-top: 1px solid #eee;
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Paste Content</h1>
+        <pre><%= content %></pre>
+        <div class="meta">
+            <% if (expires_at) { %>
+                <span>Expires: <%= new Date(expires_at).toLocaleString() %></span>
+                <% } else { %>
+                    <span>No Expiration</span>
+                    <% } %>
+                        <% if (remaining_views) { %>
+                            <span> | Remaining Views: <%= remaining_views %></span>
+                            <% } %>
+        </div>
+    </div>
+</body>
+</html>
